@@ -127,3 +127,8 @@
 **Промпт:** "Добавь retry-логику в оркестратор: оберни send_task в цикл с MAX_RETRIES=3, TimeoutError → retry с новым uuid, Exception → retry, ValueError/ConnectionError — без retry."
 
 **Результат:** В `orchestrator/orchestrator.py` добавлена константа `MAX_RETRIES = 3`. Метод `send_task` переписан: валидация вынесена перед циклом (без retry), каждая попытка — новый `task_id` + `Future`, `TimeoutError` и `Exception` логируются как WARNING и повторяются, после исчерпания попыток пробрасывается последняя ошибка. Исправлена опечатка `SUBSCRIPT_` → `SUBJECT_`. 21 существующий pytest и 15 Go-тестов проходят без изменений.
+
+### Промпт 2
+**Промпт:** "Добавь тесты retry-логики и выполни Docker-проверку: 4 теста (success на второй попытке, exhaustion после MAX_RETRIES, без retry на ValueError, подсчёт WARNING-логов) + прогон всех 4 сценариев в Docker."
+
+**Результат:** В `orchestrator/tests/test_orchestrator.py` добавлено 6 новых тестовых случаев (включая 3 параметризованных для validation error): `test_retry_success_on_second_attempt` (publish падает на первом вызове), `test_retry_exhaustion` (3 TimeoutError → raise), `test_retry_no_retry_on_validation_error` (3 варианта), `test_retry_logs_warning_on_each_retry` (3 WARNING). В `orchestrator/__init__.py` добавлен экспорт `MAX_RETRIES`. В `orchestrator/main.py` добавлен 5-й сценарий `Retry Exhaustion (timeout 1ms)` с поддержкой `timeout` в сценарии. Docker: образы собраны, стек запущен, все 5 сценариев выполнены — первые 3 успешно, Invalid с ошибкой валидации, Retry Exhaustion с 3 WARNING + финальной ошибкой после 3 попыток. Всего 27 pytest + 15 Go-тестов проходят.

@@ -4,7 +4,7 @@ import logging
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest_asyncio
-from orchestrator import AgentOrchestrator, SUBJECT_RISK_ASSESSMENT, SUBJECT_COMPLETED
+from orchestrator import AgentOrchestrator, SUBJECT_RISK_ASSESSMENT, SUBJECT_COMPLETED, MAX_RETRIES
 
 @pytest_asyncio.fixture
 async def orchestrator():
@@ -197,3 +197,71 @@ async def test_disconnect_logs_processed(orchestrator, caplog):
     orchestrator.processed = 3
     await orchestrator.disconnect()
     assert "Total tasks processed: 3" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_retry_success_on_second_attempt(orchestrator):
+    payload = {"markers": [{"id": "RETRY", "confidence": 1.0}]}
+    call_count = 0
+
+    async def publish_side(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise Exception("Temporary network error")
+
+    orchestrator.nc.publish.side_effect = publish_side
+
+    async def simulate():
+        for _ in range(100):
+            for task_id, future in list(orchestrator.results.items()):
+                if not future.done():
+                    future.set_result({
+                        "transaction_id": task_id,
+                        "risk_score": 30,
+                        "verdict": "LOW",
+                        "reason": "Retry success"
+                    })
+                    return
+            await asyncio.sleep(0.01)
+
+    asyncio.create_task(simulate())
+    result = await orchestrator.send_task(payload, timeout=5)
+
+    assert result["risk_score"] == 30
+    assert result["verdict"] == "LOW"
+    assert orchestrator.nc.publish.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_retry_exhaustion(orchestrator):
+    payload = {"markers": []}
+    with pytest.raises(TimeoutError) as exc_info:
+        await orchestrator.send_task(payload, timeout=0.01)
+    assert "timed out" in str(exc_info.value)
+    assert orchestrator.nc.publish.call_count == MAX_RETRIES
+
+
+@pytest.mark.parametrize("payload", [
+    {"markers": "not a list"},
+    {"wrong_key": []},
+    {},
+])
+@pytest.mark.asyncio
+async def test_retry_no_retry_on_validation_error(orchestrator, payload):
+    with pytest.raises(ValueError):
+        await orchestrator.send_task(payload, timeout=5)
+    assert orchestrator.nc.publish.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_retry_logs_warning_on_each_retry(orchestrator, caplog):
+    caplog.set_level(logging.WARNING)
+    payload = {"markers": []}
+    with pytest.raises(TimeoutError):
+        await orchestrator.send_task(payload, timeout=0.01)
+    warning_count = sum(
+        1 for rec in caplog.records
+        if rec.levelno == logging.WARNING and "timed out" in rec.message
+    )
+    assert warning_count == MAX_RETRIES

@@ -55,6 +55,11 @@ async def main() -> None:
         {
             "name": "Invalid Payload",
             "payload": {"markers": "not a list"}
+        },
+        {
+            "name": "Retry Exhaustion (timeout 1ms)",
+            "payload": {"markers": [{"id": "TEST", "confidence": 0.5}]},
+            "timeout": 0.001
         }
     ]
 
@@ -64,7 +69,8 @@ async def main() -> None:
                 break
             logger.info("Running scenario: %s", scenario["name"])
             try:
-                result = await orchestrator.send_task(scenario["payload"])
+                timeout = scenario.get("timeout", 30)
+                result = await orchestrator.send_task(scenario["payload"], timeout=timeout)
                 logger.info("Result: Score=%d, Verdict=%s, Reason=%s",
                             result["risk_score"], result["verdict"], result["reason"])
             except Exception as e:
