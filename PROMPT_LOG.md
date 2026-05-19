@@ -206,3 +206,17 @@
 - Количество промптов: 1
 - Что пришлось исправлять вручную: добавлен `asyncio.set_event_loop(event_loop)` в `orchestrator/tests/conftest.py` для совместимости с Windows; в `orchestrator/orchestrator.py` последний `raise last_error` заменён на `assert last_error is not None; raise last_error` для корректного вывода типов mypy; добавлен `threading.Lock` для защиты `rate_history` от race condition в `api/main.py`.
 - Время: ~20 мин.
+
+---
+
+## Задание 10: Документирование архитектуры
+**Инструмент:** opencode (big-pickle)
+
+**Промпт:** "напиши подробное описание архитектуры мультиагентной системы для docs/task10.md: Mermaid-диаграмма компонентов, sequence diagram полного потока обработки, технологический стек с версиями, детальное описание каждого компонента (Go-агент, оркестратор, API, NATS, Docker Compose, Dockerfile, .dockerignore, .gitignore), полная матрица обработки ошибок с HTTP-статусами, логирование для каждого компонента, тестирование (все 106 тестов с разбивкой по группам и таблицами subtests), инструкции по деплойменту с curl-примерами, структура проекта с количеством строк в каждом файле, таблица thread safety."
+
+**Результат:** Создан `docs/task10.md` (10 разделов, ~500 строк): компонентная и sequence Mermaid-диаграммы; технологический стек (Go 1.26.1, nats.go v1.50.0, FastAPI 0.115.6, NATS 2.10-alpine, pytest 8.4.2); детальное описание Go-агента (структуры, веса маркеров, формула calculateRisk, processMessage, NATS QueueSubscribe, errDecode sentinel, io.MultiWriter, sync.Mutex, сигналы); оркестратора (AgentOrchestrator с таблицей методов, логика retry 3x с новым UUID на каждую попытку, on_result с защитой future.done(), module-level basicConfig); API Gateway (6 Pydantic-моделей, 5 эндпоинтов, rate limiter на threading.Lock, middleware, lifespan); NATS-коммуникации (Queue Group, форматы сообщений); Docker Compose (6 сервисов, YAML anchor); 3 Dockerfile (multi-stage Go, python:3.13-slim); .dockerignore и .gitignore со всеми 19 правилами; матрица 12 сценариев ошибок; логирование (механизмы и форматы); тестирование (106 тестов: 21 Go table-driven с таблицей 13 subtests + 6 processMessage + 1 JSONPipeline, 40 pytest оркестратора с таблицей 18 функций, 39 pytest API с таблицей 8 классов, 6 e2e); деплоймент с 5 curl-примерами; структура проекта с указанием строк в каждом файле; таблица thread safety (4 компонента). Проведена верификация каждого утверждения по исходному коду всех файлов.
+
+### Итого
+- Количество промптов: 1
+- Что пришлось исправлять вручную: —
+- Время: ~20 мин.
