@@ -132,3 +132,8 @@
 **Промпт:** "Добавь тесты retry-логики и выполни Docker-проверку: 4 теста (success на второй попытке, exhaustion после MAX_RETRIES, без retry на ValueError, подсчёт WARNING-логов) + прогон всех 4 сценариев в Docker."
 
 **Результат:** В `orchestrator/tests/test_orchestrator.py` добавлено 6 новых тестовых случаев (включая 3 параметризованных для validation error): `test_retry_success_on_second_attempt` (publish падает на первом вызове), `test_retry_exhaustion` (3 TimeoutError → raise), `test_retry_no_retry_on_validation_error` (3 варианта), `test_retry_logs_warning_on_each_retry` (3 WARNING). В `orchestrator/__init__.py` добавлен экспорт `MAX_RETRIES`. В `orchestrator/main.py` добавлен 5-й сценарий `Retry Exhaustion (timeout 1ms)` с поддержкой `timeout` в сценарии. Docker: образы собраны, стек запущен, все 5 сценариев выполнены — первые 3 успешно, Invalid с ошибкой валидации, Retry Exhaustion с 3 WARNING + финальной ошибкой после 3 попыток. Всего 27 pytest + 15 Go-тестов проходят.
+
+### Итого
+- Количество промптов: 2
+- Что пришлось исправлять вручную: добавлен экспорт `MAX_RETRIES` в `__init__.py` (константа не была доступна для импорта в тестах).
+- Время: ~30 мин.
