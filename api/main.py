@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import threading
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -58,6 +59,7 @@ class HealthResponse(BaseModel):
 orchestrator: Optional[AgentOrchestrator] = None
 background_tasks: Dict[str, Dict[str, Any]] = {}
 rate_history: List[float] = []
+rate_lock = threading.Lock()
 
 
 async def process_background(task_id: str, payload: Dict[str, Any]) -> None:
@@ -79,11 +81,12 @@ async def process_background(task_id: str, payload: Dict[str, Any]) -> None:
 
 def check_rate_limit() -> None:
     now = time.time()
-    global rate_history
-    rate_history = [t for t in rate_history if now - t < RATE_WINDOW]
-    if len(rate_history) >= RATE_LIMIT:
-        raise HTTPException(status_code=429, detail="Rate limit exceeded")
-    rate_history.append(now)
+    global rate_history, rate_lock
+    with rate_lock:
+        rate_history = [t for t in rate_history if now - t < RATE_WINDOW]
+        if len(rate_history) >= RATE_LIMIT:
+            raise HTTPException(status_code=429, detail="Rate limit exceeded")
+        rate_history.append(now)
 
 
 @asynccontextmanager

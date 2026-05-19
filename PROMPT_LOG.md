@@ -201,3 +201,8 @@
 - **API (45)**: 39 unit-тестов — health (3), assess (13 параметризованных), async (4), status (5), batch (6), process_background (4), rate_limit (1); 6 e2e-тестов — health, assess_sync, assess_batch, async_flow, validation_error, status_not_found.
 
 Все тесты проходят локально (Windows) и в Docker (Linux). Для Docker: Go-тесты через `golang:1.26-alpine` с монтированием исходников; Python — через `lab13-orchestrator` и `lab13-api` с установкой зависимостей на лету. E2e тесты не пропускаются внутри контейнера — работают против внешнего стека через `docker_stack` фикстуру с условным управлением Docker CLI.
+
+### Итого
+- Количество промптов: 1
+- Что пришлось исправлять вручную: добавлен `asyncio.set_event_loop(event_loop)` в `orchestrator/tests/conftest.py` для совместимости с Windows; в `orchestrator/orchestrator.py` последний `raise last_error` заменён на `assert last_error is not None; raise last_error` для корректного вывода типов mypy; добавлен `threading.Lock` для защиты `rate_history` от race condition в `api/main.py`.
+- Время: ~20 мин.

@@ -41,4 +41,5 @@ def client(mock_orch) -> TestClient:
 @pytest.fixture(autouse=True)
 def reset_state() -> None:
     api.main.background_tasks.clear()
-    api.main.rate_history.clear()
+    with api.main.rate_lock:
+        api.main.rate_history.clear()

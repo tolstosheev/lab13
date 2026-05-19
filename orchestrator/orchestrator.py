@@ -99,6 +99,7 @@ class AgentOrchestrator:
                 if task_id in self.results:
                     del self.results[task_id]
 
+        assert last_error is not None
         raise last_error
 
     async def disconnect(self) -> None:
