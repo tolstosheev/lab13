@@ -111,7 +111,7 @@
 ### Промпт 4
 **Промпт:** "Улучши тестовое покрытие: добавь тесты для counter'ов, listener'а, логирования в Python, граничные случаи в Go, убери исключение тестов из .dockerignore."
 
-**Результат:** В `orchestrator/tests/test_orchestrator.py` добавлено 6 новых тестов: `test_processed_counter_increments`, `test_disconnect_with_processed`, `test_start_listener_subscribes_correctly`, `test_connect_logs_url`, `test_send_task_logs_start_and_complete`, `test_disconnect_logs_processed`. Общее количество тестов увеличено с 15 до 21. В `agent/main_test.go` добавлены 2 крайних случая: переполнение confidence (>1.0) и пустой TransactionID. Общее количество табличных случаев — 13. Из `.dockerignore` удалены `tests/` (orchestrator) и `*_test.go` (agent). Тесты проходят как локально, так и в Docker.
+**Результат:** В `orchestrator/tests/test_orchestrator.py` добавлено 6 новых тестов: `test_processed_counter_increments`, `test_disconnect_with_processed`, `test_start_listener_subscribes_correctly`, `test_connect_logs_url`, `test_send_task_logs`, `test_disconnect_logs_processed`. Общее количество тестов увеличено с 15 до 21. В `agent/main_test.go` добавлены 2 крайних случая: переполнение confidence (>1.0) и пустой TransactionID. Общее количество табличных случаев — 13. Из `.dockerignore` удалены `tests/` (orchestrator) и `*_test.go` (agent). Тесты проходят как локально, так и в Docker.
 
 ### Итого
 - Количество промптов: 4

@@ -596,7 +596,7 @@ CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ### 7.1 Go-тесты (`agent/main_test.go`)
 
-**21 тест, 3 функции:**
+**20 тестов, 3 функции:**
 
 `TestCalculateRisk` (13 table-driven subtests):
 | Subtest | Маркеры | Confidence | Score | Вердикт |
@@ -738,14 +738,14 @@ CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 | Go agent — calculateRisk | 13 | unit, table-driven | `go test -v` |
 | Go agent — processMessage | 6 | unit, table-driven | `go test -v` |
 | Go agent — JSON pipeline | 1 | integration | `go test -v` |
-| **Go итого** | **21** | | |
+| **Go итого** | **20** | | |
 | Orchestrator — unit | 37 | unit, mocked NATS | `pytest orchestrator/tests/test_orchestrator.py` |
 | Orchestrator — multi-agent e2e | 3 | e2e, Docker | `pytest orchestrator/tests/test_multi_agent.py` |
 | **Orchestrator итого** | **40** | | |
 | API — unit | 39 | unit, mocked orchestrator | `pytest api/tests/test_api.py` |
 | API — e2e | 6 | e2e, Docker stack | `pytest api/tests/test_e2e.py` |
 | **API итого** | **45** | | |
-| **Всего** | **106** | | |
+| **Всего** | **105** | | |
 
 ## 8. Деплоймент
 
