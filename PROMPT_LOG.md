@@ -117,3 +117,13 @@
 - Количество промптов: 4
 - Что пришлось исправлять вручную: дублирование логов из-за instance-level логгера (замена на module-level с basicConfig), флуд ERROR/WARNING в on_result (понижен до DEBUG), FileHandler с append на write, restart оркестратора с always на "no", обёртка add_signal_handler в try/except для Windows, лишний пробел в декораторе `@ pytest.mark.asyncio`.
 - Время: ~60 мин.
+
+---
+
+## Задание 6: Обработка ошибок и таймаутов
+**Инструмент:** opencode (big-pickle)
+
+### Промпт 1
+**Промпт:** "Добавь retry-логику в оркестратор: оберни send_task в цикл с MAX_RETRIES=3, TimeoutError → retry с новым uuid, Exception → retry, ValueError/ConnectionError — без retry."
+
+**Результат:** В `orchestrator/orchestrator.py` добавлена константа `MAX_RETRIES = 3`. Метод `send_task` переписан: валидация вынесена перед циклом (без retry), каждая попытка — новый `task_id` + `Future`, `TimeoutError` и `Exception` логируются как WARNING и повторяются, после исчерпания попыток пробрасывается последняя ошибка. Исправлена опечатка `SUBSCRIPT_` → `SUBJECT_`. 21 существующий pytest и 15 Go-тестов проходят без изменений.

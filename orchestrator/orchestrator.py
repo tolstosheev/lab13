@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 SUBJECT_RISK_ASSESSMENT = "tasks.risk_assessment"
 SUBJECT_COMPLETED = "tasks.completed"
+MAX_RETRIES = 3
 
 class RiskRequest(TypedDict):
     transaction_id: str
@@ -59,32 +60,39 @@ class AgentOrchestrator:
         if not isinstance(markers, list):
             raise ValueError("Payload 'markers' must be a list")
 
-        task_id = str(uuid.uuid4())
         task_data: RiskRequest = {
-            "transaction_id": task_id,
+            "transaction_id": str(uuid.uuid4()),
             "markers": markers
         }
 
-        logger.info("Sending task %s with %d markers", task_id, len(markers))
-        future = asyncio.get_running_loop().create_future()
-        self.results[task_id] = future
+        last_error: Optional[Exception] = None
+        for attempt in range(1, MAX_RETRIES + 1):
+            task_id = str(uuid.uuid4())
+            task_data["transaction_id"] = task_id
+            logger.info("Sending task %s with %d markers (attempt %d/%d)",
+                        task_id, len(markers), attempt, MAX_RETRIES)
 
-        try:
-            await self.nc.publish(SUBJECT_RISK_ASSESSMENT, json.dumps(task_data).encode())
-            result = await asyncio.wait_for(future, timeout=timeout)
-            self.processed += 1
-            logger.info("Task %s completed: score %d, verdict %s (processed: %d)",
-                        task_id, result["risk_score"], result["verdict"], self.processed)
-            return cast(RiskResponse, result)
-        except asyncio.TimeoutError:
-            logger.error("Task %s timed out after %ds", task_id, timeout)
-            raise TimeoutError(f"Task {task_id} timed out after {timeout} seconds")
-        except Exception as e:
-            logger.error("Task %s failed: %s", task_id, str(e))
-            raise RuntimeError(f"Task {task_id} failed: {str(e)}")
-        finally:
-            if task_id in self.results:
-                del self.results[task_id]
+            future = asyncio.get_running_loop().create_future()
+            self.results[task_id] = future
+
+            try:
+                await self.nc.publish(SUBJECT_RISK_ASSESSMENT, json.dumps(task_data).encode())
+                result = await asyncio.wait_for(future, timeout=timeout)
+                self.processed += 1
+                logger.info("Task %s completed: score %d, verdict %s (processed: %d)",
+                            task_id, result["risk_score"], result["verdict"], self.processed)
+                return cast(RiskResponse, result)
+            except asyncio.TimeoutError:
+                last_error = TimeoutError(f"Task {task_id} timed out after {timeout} seconds")
+                logger.warning("Task %s timed out (attempt %d/%d)", task_id, attempt, MAX_RETRIES)
+            except Exception as e:
+                last_error = RuntimeError(f"Task {task_id} failed: {str(e)}")
+                logger.warning("Task %s failed (attempt %d/%d): %s", task_id, attempt, MAX_RETRIES, e)
+            finally:
+                if task_id in self.results:
+                    del self.results[task_id]
+
+        raise last_error
 
     async def disconnect(self) -> None:
         if self.nc:
