@@ -170,3 +170,8 @@
 **Промпт:** "Реализуй FastAPI-приложение для запуска задач через REST API. Эндпоинты: POST /assess (синхронная оценка), POST /assess/async (асинхронная с task_id), GET /status/{task_id} (проверка статуса), POST /assess/batch (массовая отправка), GET /health (healthcheck). Добавь request_id в логи, rate limiting (10 req/min), Pydantic-валидацию. Подключение к NATS через lifespan."
 
 **Результат:** Созданы `api/main.py` и `api/requirements.txt`. FastAPI-приложение с AgentOrchestrator через lifespan. Pydantic-модели для входа/выхода. Асинхронные задачи через in-memory storage + asyncio.create_task. Middleware для request_id и длительности запросов. Rate limiter на основе sliding window.
+
+### Промпт 2
+**Промпт:** "Создай Docker-инфраструктуру для API: api/Dockerfile, api/.dockerignore, обновление docker-compose.yml с сервисом api на порту 8000."
+
+**Результат:** Создан `api/Dockerfile` (python:3.13-slim, копирование api/ и orchestrator/, PYTHONPATH=/app), `api/.dockerignore` (__pycache__, *.pyc, .pytest_cache). Обновлён `docker-compose.yml`: добавлен сервис `api` (build context = ., dockerfile = api/Dockerfile, порт 8000, depends_on: nats). Все эндпоинты проверены через curl.exe: GET /health → {"status":"ok"}, POST /assess → {"risk_score":80,...}, POST /assess/async → {"task_id":"...","status":"pending"}, POST /assess/batch → {"results":[...]}, GET /status/{task_id} → {"status":"completed","result":{...}}.

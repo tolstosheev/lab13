@@ -39,3 +39,15 @@ services:
     depends_on:
       - nats
     restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - NATS_URL=nats://nats:4222
+    depends_on:
+      - nats
+    restart: "no"

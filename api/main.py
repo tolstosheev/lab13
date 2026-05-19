@@ -45,7 +45,7 @@ class HealthResponse(BaseModel):
     status: str = "ok"
 
 
-orchestrator: AgentOrchestrator = None
+orchestrator: Optional[AgentOrchestrator] = None
 background_tasks: Dict[str, Dict[str, Any]] = {}
 rate_history: List[float] = []
 
@@ -67,7 +67,7 @@ async def process_background(task_id: str, payload: Dict[str, Any]) -> None:
         background_tasks[task_id] = {"status": "failed", "error": str(e)}
 
 
-def check_rate_limit(client_ip: str) -> None:
+def check_rate_limit() -> None:
     now = time.time()
     global rate_history
     rate_history = [t for t in rate_history if now - t < RATE_WINDOW]
@@ -107,8 +107,8 @@ async def health():
 
 
 @app.post("/assess", response_model=AssessResponse)
-async def assess(request: AssessRequest, fastapi_request: Request):
-    check_rate_limit(fastapi_request.client.host)
+async def assess(request: AssessRequest):
+    check_rate_limit()
     payload = {
         "markers": [m.model_dump() for m in request.markers]
     }
@@ -129,8 +129,8 @@ async def assess(request: AssessRequest, fastapi_request: Request):
 
 
 @app.post("/assess/async", response_model=TaskStatus)
-async def assess_async(request: AssessRequest, fastapi_request: Request):
-    check_rate_limit(fastapi_request.client.host)
+async def assess_async(request: AssessRequest):
+    check_rate_limit()
     task_id = str(uuid.uuid4())
     background_tasks[task_id] = {"status": "pending"}
     payload = {
@@ -149,8 +149,8 @@ async def get_status(task_id: str):
 
 
 @app.post("/assess/batch", response_model=BatchResponse)
-async def assess_batch(request: BatchRequest, fastapi_request: Request):
-    check_rate_limit(fastapi_request.client.host)
+async def assess_batch(request: BatchRequest):
+    check_rate_limit()
     results = []
     for i, task in enumerate(request.tasks):
         payload = {
@@ -163,6 +163,10 @@ async def assess_batch(request: BatchRequest, fastapi_request: Request):
                 verdict=result["verdict"],
                 reason=result["reason"],
             ))
+        except asyncio.TimeoutError:
+            raise HTTPException(status_code=504, detail=f"Batch task {i} timed out")
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
         except Exception as e:
             logger.error("Batch task %d failed: %s", i, e)
             raise HTTPException(status_code=500, detail=f"Batch task {i} failed: {str(e)}")
