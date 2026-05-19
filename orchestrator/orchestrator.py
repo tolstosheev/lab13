@@ -1,7 +1,7 @@
 import asyncio
 import json
 import uuid
-from typing import Dict, Optional, Any, List, TypedDict
+from typing import Dict, Optional, Any, List, TypedDict, cast
 import nats
 
 SUBJECT_RISK_ASSESSMENT = "tasks.risk_assessment"
@@ -28,7 +28,7 @@ class AgentOrchestrator:
     async def start_listener(self) -> None:
         await self.nc.subscribe(SUBJECT_COMPLETED, cb=self.on_result)
 
-    async def on_result(self, msg: nats.Msg) -> None:
+    async def on_result(self, msg: Any) -> None:
         try:
             data = json.loads(msg.data.decode())
             if not isinstance(data, dict):
@@ -62,7 +62,7 @@ class AgentOrchestrator:
         try:
             await self.nc.publish(SUBJECT_RISK_ASSESSMENT, json.dumps(task_data).encode())
             result = await asyncio.wait_for(future, timeout=timeout)
-            return result # type: ignore
+            return cast(RiskResponse, result)
         except asyncio.TimeoutError:
             raise TimeoutError(f"Task {task_id} timed out after {timeout} seconds")
         except Exception as e:

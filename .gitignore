@@ -1,6 +1,7 @@
 *.exe
 *.dll
 *.so
+*.pyc
 __pycache__/
 .venv/
 venv/

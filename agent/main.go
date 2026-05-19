@@ -7,7 +7,6 @@ import (
 	"math"
 	"os"
 	"os/signal"
-	"syscall"
 
 	"github.com/nats-io/nats.go"
 )
@@ -47,7 +46,7 @@ func calculateRisk(req RiskRequest) RiskResponse {
 		}
 	}
 
-	finalScore := int(math.Min(100, math.Round(totalScore)))
+	finalScore := int(math.Max(0, math.Min(100, math.Round(totalScore))))
 	verdict := "LOW"
 	if finalScore > 80 {
 		verdict = "HIGH"
@@ -105,6 +104,6 @@ func main() {
 	log.Println("Risk Assessor agent is running...")
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigChan, os.Interrupt)
 	<-sigChan
 }

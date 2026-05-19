@@ -1,10 +1,10 @@
 import asyncio
 import pytest
-import nats
 from unittest.mock import AsyncMock, MagicMock, patch
+import pytest_asyncio
 from orchestrator import AgentOrchestrator, SUBJECT_RISK_ASSESSMENT
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def orchestrator():
     orch = AgentOrchestrator()
     orch.nc = AsyncMock()
@@ -22,21 +22,22 @@ async def test_connect():
 @pytest.mark.asyncio
 async def test_send_task_success(orchestrator):
     payload = {"markers": [{"id": "TEST", "confidence": 1.0}]}
-    
+
     async def simulate_response():
-        await asyncio.sleep(0.01)
-        for task_id, future in list(orchestrator.results.items()):
-            if not future.done():
-                future.set_result({
-                    "transaction_id": task_id,
-                    "risk_score": 50,
-                    "verdict": "MEDIUM",
-                    "reason": "Test reason"
-                })
-                break
+        for _ in range(100):
+            for task_id, future in list(orchestrator.results.items()):
+                if not future.done():
+                    future.set_result({
+                        "transaction_id": task_id,
+                        "risk_score": 50,
+                        "verdict": "MEDIUM",
+                        "reason": "Test reason"
+                    })
+                    return
+            await asyncio.sleep(0.01)
 
     asyncio.create_task(simulate_response())
-    
+
     result = await orchestrator.send_task(payload)
     
     assert result["risk_score"] == 50

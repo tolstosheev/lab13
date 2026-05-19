@@ -132,7 +132,7 @@ func TestCalculateRisk(t *testing.T) {
 					{ID: "VELOCITY_ATTACK", Confidence: -1.0},
 				},
 			},
-			wantScore:   -30,
+			wantScore:   0,
 			wantVerdict: "LOW",
 		},
 	}
