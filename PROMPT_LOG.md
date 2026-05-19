@@ -138,8 +138,6 @@
 - Что пришлось исправлять вручную: добавлен экспорт `MAX_RETRIES` в `__init__.py` (константа не была доступна для импорта в тестах).
 - Время: ~30 мин.
 
----
-
 ## Задание 7: Запуск нескольких агентов одного типа
 **Инструмент:** opencode (big-pickle)
 
@@ -162,3 +160,13 @@
 - Количество промптов: 3
 - Что пришлось исправлять вручную: исправлена flaky проверка `assert agents_seen == {"agent-1", "agent-2", "agent-3"}` для случая 3 задач (Queue Group не гарантирует распределение на всех агентов при малом количестве); добавлено автоопределение `inside_docker` через `/.dockerenv` для корректного `NATS_URL` и пропуска Docker CLI-зависимых операций внутри контейнера; исправлена фикстура `docker_stack` — обязательный `yield` для совместимости с `pytest_asyncio`; дополнен `agent/.dockerignore` (исключены `agent.log` и `*.md` из контекста сборки); удалён мёртвый код в `orchestrator.py` (первая генерация UUID вне цикла retry никогда не использовалась).
 - Время: ~30 мин.
+
+---
+
+## Задание 8: Создание API для запуска задач
+**Инструмент:** opencode (big-pickle)
+
+### Промпт 1
+**Промпт:** "Реализуй FastAPI-приложение для запуска задач через REST API. Эндпоинты: POST /assess (синхронная оценка), POST /assess/async (асинхронная с task_id), GET /status/{task_id} (проверка статуса), POST /assess/batch (массовая отправка), GET /health (healthcheck). Добавь request_id в логи, rate limiting (10 req/min), Pydantic-валидацию. Подключение к NATS через lifespan."
+
+**Результат:** Созданы `api/main.py` и `api/requirements.txt`. FastAPI-приложение с AgentOrchestrator через lifespan. Pydantic-модели для входа/выхода. Асинхронные задачи через in-memory storage + asyncio.create_task. Middleware для request_id и длительности запросов. Rate limiter на основе sliding window.
