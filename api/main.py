@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from typing import Dict, Any, List, Optional
 
 from fastapi import FastAPI, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from orchestrator import AgentOrchestrator
 
@@ -19,7 +19,7 @@ RATE_WINDOW = 60.0
 
 class MarkerModel(BaseModel):
     id: str
-    confidence: float
+    confidence: float = Field(..., ge=0.0, le=1.0)
 
 class AssessRequest(BaseModel):
     markers: List[MarkerModel]
