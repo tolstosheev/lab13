@@ -1,8 +1,10 @@
 import asyncio
+import logging
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest_asyncio
-from orchestrator import AgentOrchestrator, SUBJECT_RISK_ASSESSMENT
+from orchestrator import AgentOrchestrator, SUBJECT_RISK_ASSESSMENT, SUBJECT_COMPLETED
 
 @pytest_asyncio.fixture
 async def orchestrator():
@@ -122,3 +124,76 @@ async def test_on_result_unknown_task(orchestrator):
 async def test_disconnect(orchestrator):
     await orchestrator.disconnect()
     orchestrator.nc.close.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_processed_counter_increments(orchestrator):
+    assert orchestrator.processed == 0
+    payload = {"markers": [{"id": "TEST", "confidence": 1.0}]}
+
+    async def simulate_response():
+        for _ in range(100):
+            for task_id, future in list(orchestrator.results.items()):
+                if not future.done():
+                    future.set_result({
+                        "transaction_id": task_id,
+                        "risk_score": 30,
+                        "verdict": "LOW",
+                        "reason": "Counter test"
+                    })
+                    return
+            await asyncio.sleep(0.01)
+
+    asyncio.create_task(simulate_response())
+    await orchestrator.send_task(payload)
+    assert orchestrator.processed == 1
+
+@pytest.mark.asyncio
+async def test_disconnect_with_processed(orchestrator):
+    orchestrator.processed = 5
+    await orchestrator.disconnect()
+    orchestrator.nc.close.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_start_listener_subscribes_correctly(orchestrator):
+    await orchestrator.start_listener()
+    orchestrator.nc.subscribe.assert_called_once()
+    args, _ = orchestrator.nc.subscribe.call_args
+    assert args[0] == SUBJECT_COMPLETED
+
+@ pytest.mark.asyncio
+async def test_connect_logs_url(caplog):
+    caplog.set_level(logging.INFO)
+    with patch("nats.connect", new_callable=AsyncMock):
+        orch = AgentOrchestrator()
+        await orch.connect("nats://test:4222")
+        assert "Connected to NATS at nats://test:4222" in caplog.text
+
+@pytest.mark.asyncio
+async def test_send_task_logs_start_and_complete(orchestrator, caplog):
+    caplog.set_level(logging.INFO)
+    payload = {"markers": [{"id": "TEST", "confidence": 1.0}]}
+
+    async def simulate_response():
+        for _ in range(100):
+            for task_id, future in list(orchestrator.results.items()):
+                if not future.done():
+                    future.set_result({
+                        "transaction_id": task_id,
+                        "risk_score": 50,
+                        "verdict": "MEDIUM",
+                        "reason": "Log test"
+                    })
+                    return
+            await asyncio.sleep(0.01)
+
+    asyncio.create_task(simulate_response())
+    await orchestrator.send_task(payload)
+    assert "Sending task" in caplog.text
+    assert "completed" in caplog.text
+
+@pytest.mark.asyncio
+async def test_disconnect_logs_processed(orchestrator, caplog):
+    caplog.set_level(logging.INFO)
+    orchestrator.processed = 3
+    await orchestrator.disconnect()
+    assert "Total tasks processed: 3" in caplog.text

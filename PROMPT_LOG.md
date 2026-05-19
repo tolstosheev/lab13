@@ -107,3 +107,8 @@
 **Промпт:** "Добавь логирование в файл для Go-агента, настрой оркестратор для работы в Docker, обеспечь обработку сигналов и корректное логирование."
 
 **Результат:** В `agent/main.go` добавлен `io.MultiWriter(os.Stdout, logFile)` — лог дублируется в консоль и `agent.log`. Создан `orchestrator/Dockerfile` на базе `python:3.13-slim`, зафиксированы версии зависимостей (`nats-py==2.14.0`, `pytest==8.4.2`, `pytest-asyncio==1.3.0`). В `docker-compose.yml` добавлен сервис `orchestrator` с `NATS_URL=nats://nats:4222`. В `orchestrator/main.py` добавлено чтение `NATS_URL` из окружения, обработка `SIGINT`/`SIGTERM` через `add_signal_handler` с graceful disconnect. В `agent/main.go` добавлен `syscall.SIGTERM` в `signal.Notify`. Созданы `.dockerignore` для обоих сервисов. Docker-образы собираются и работают корректно.
+
+### Промпт 4
+**Промпт:** "Улучши тестовое покрытие: добавь тесты для counter'ов, listener'а, логирования в Python, граничные случаи в Go, убери исключение тестов из .dockerignore."
+
+**Результат:** В `orchestrator/tests/test_orchestrator.py` добавлено 6 новых тестов: `test_processed_counter_increments`, `test_disconnect_with_processed`, `test_start_listener_subscribes_correctly`, `test_connect_logs_url`, `test_send_task_logs_start_and_complete`, `test_disconnect_logs_processed`. Общее количество тестов увеличено с 15 до 21. В `agent/main_test.go` добавлены 2 крайних случая: переполнение confidence (>1.0) и пустой TransactionID. Общее количество табличных случаев — 13. Из `.dockerignore` удалены `tests/` (orchestrator) и `*_test.go` (agent). Тесты проходят как локально, так и в Docker.

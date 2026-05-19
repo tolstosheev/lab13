@@ -135,6 +135,26 @@ func TestCalculateRisk(t *testing.T) {
 			wantScore:   0,
 			wantVerdict: "LOW",
 		},
+		{
+			name: "Edge case - overflow confidence clamped",
+			request: RiskRequest{
+				TransactionID: "tx-12",
+				Markers: []Marker{
+					{ID: "BLACKLIST_HIT", Confidence: 2.0},
+				},
+			},
+			wantScore:   100,
+			wantVerdict: "HIGH",
+		},
+		{
+			name: "Edge case - empty transaction ID",
+			request: RiskRequest{
+				TransactionID: "",
+				Markers:       []Marker{},
+			},
+			wantScore:   0,
+			wantVerdict: "LOW",
+		},
 	}
 
 	for _, tt := range tests {
