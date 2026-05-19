@@ -1,7 +1,20 @@
 import asyncio
+import logging
+
 from orchestrator import AgentOrchestrator
 
+logger = logging.getLogger("main")
+
 async def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        handlers=[
+            logging.FileHandler("orchestrator.log", mode="w", encoding="utf-8"),
+            logging.StreamHandler()
+        ]
+    )
+
     orchestrator = AgentOrchestrator()
     await orchestrator.connect()
     await orchestrator.start_listener()
@@ -29,13 +42,13 @@ async def main() -> None:
     ]
 
     for scenario in test_scenarios:
-        print(f"Running scenario: {scenario['name']}")
+        logger.info("Running scenario: %s", scenario["name"])
         try:
-            result = await orchestrator.send_task(scenario['payload'])
-            print(f"Result: Score={result['risk_score']}, Verdict={result['verdict']}, Reason={result['reason']}")
+            result = await orchestrator.send_task(scenario["payload"])
+            logger.info("Result: Score=%d, Verdict=%s, Reason=%s",
+                        result["risk_score"], result["verdict"], result["reason"])
         except Exception as e:
-            print(f"Error: {e}")
-        print("-" * 20)
+            logger.error("Scenario '%s' failed: %s", scenario["name"], e)
 
     await orchestrator.disconnect()
 

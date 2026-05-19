@@ -97,3 +97,8 @@
 **Промпт:** "Добавь в Go-агента структурированное логирование с уровнями INFO/ERROR, счётчик обработанных задач processedTasks и вывод финальной статистики при завершении работы."
 
 **Результат:** В agent/main.go добавлены префиксы `INFO:` и `ERROR:` во все log.Printf, введена глобальная переменная `processedTasks` с инкрементом после каждой успешной публикации, добавлен вывод `INFO: Agent shutting down. Total tasks processed: N` в блоке завершения. Go-тесты проходят успешно.
+
+### Промпт 2
+**Промпт:** "Добавь в Python-оркестратор структурированное логирование с уровнями INFO/ERROR, счётчик обработанных задач и запись в файл + консоль."
+
+**Результат:** В `orchestrator/orchestrator.py` добавлен module-level логгер, счетчик `self.processed`, логи уровня INFO/ERROR во всех методах. В `orchestrator/main.py` настроен `logging.basicConfig` с `FileHandler` (режим `w`) и `StreamHandler`. 15 pytest-тестов проходят.
