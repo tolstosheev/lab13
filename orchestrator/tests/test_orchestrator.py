@@ -160,7 +160,7 @@ async def test_start_listener_subscribes_correctly(orchestrator):
     args, _ = orchestrator.nc.subscribe.call_args
     assert args[0] == SUBJECT_COMPLETED
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_connect_logs_url(caplog):
     caplog.set_level(logging.INFO)
     with patch("nats.connect", new_callable=AsyncMock):

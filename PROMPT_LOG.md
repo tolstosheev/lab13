@@ -112,3 +112,8 @@
 **Промпт:** "Улучши тестовое покрытие: добавь тесты для counter'ов, listener'а, логирования в Python, граничные случаи в Go, убери исключение тестов из .dockerignore."
 
 **Результат:** В `orchestrator/tests/test_orchestrator.py` добавлено 6 новых тестов: `test_processed_counter_increments`, `test_disconnect_with_processed`, `test_start_listener_subscribes_correctly`, `test_connect_logs_url`, `test_send_task_logs_start_and_complete`, `test_disconnect_logs_processed`. Общее количество тестов увеличено с 15 до 21. В `agent/main_test.go` добавлены 2 крайних случая: переполнение confidence (>1.0) и пустой TransactionID. Общее количество табличных случаев — 13. Из `.dockerignore` удалены `tests/` (orchestrator) и `*_test.go` (agent). Тесты проходят как локально, так и в Docker.
+
+### Итого
+- Количество промптов: 4
+- Что пришлось исправлять вручную: дублирование логов из-за instance-level логгера (замена на module-level с basicConfig), флуд ERROR/WARNING в on_result (понижен до DEBUG), FileHandler с append на write, restart оркестратора с always на "no", обёртка add_signal_handler в try/except для Windows, лишний пробел в декораторе `@ pytest.mark.asyncio`.
+- Время: ~60 мин.
