@@ -72,16 +72,23 @@ func main() {
 		url = nats.DefaultURL
 	}
 
+	agentID := os.Getenv("AGENT_ID")
+	if agentID == "" {
+		agentID = "agent"
+	}
+
 	var agentLog *log.Logger
 	logFile, err := os.OpenFile("agent.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		agentLog = log.New(os.Stdout, "", log.LstdFlags)
+		agentLog = log.New(os.Stdout, "["+agentID+"] ", log.LstdFlags)
 		agentLog.Printf("WARNING: failed to open log file, stdout only: %v", err)
 	} else {
 		multiWriter := io.MultiWriter(os.Stdout, logFile)
-		agentLog = log.New(multiWriter, "", log.LstdFlags)
+		agentLog = log.New(multiWriter, "["+agentID+"] ", log.LstdFlags)
 		defer logFile.Close()
 	}
+
+	agentLog.Printf("INFO: Agent ID: %s", agentID)
 
 	nc, err := nats.Connect(url)
 	if err != nil {

@@ -1,3 +1,11 @@
+x-agent: &agent-base
+  build: ./agent
+  environment:
+    NATS_URL: nats://nats:4222
+  depends_on:
+    - nats
+  restart: always
+
 services:
   nats:
     image: nats:2.10-alpine
@@ -6,13 +14,23 @@ services:
       - "8222:8222"
     restart: always
 
-  agent:
-    build: ./agent
+  agent-1:
+    <<: *agent-base
     environment:
-      - NATS_URL=nats://nats:4222
-    depends_on:
-      - nats
-    restart: always
+      NATS_URL: nats://nats:4222
+      AGENT_ID: agent-1
+
+  agent-2:
+    <<: *agent-base
+    environment:
+      NATS_URL: nats://nats:4222
+      AGENT_ID: agent-2
+
+  agent-3:
+    <<: *agent-base
+    environment:
+      NATS_URL: nats://nats:4222
+      AGENT_ID: agent-3
 
   orchestrator:
     build: ./orchestrator

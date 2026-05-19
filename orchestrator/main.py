@@ -60,6 +60,11 @@ async def main() -> None:
             "name": "Retry Exhaustion (timeout 1ms)",
             "payload": {"markers": [{"id": "TEST", "confidence": 0.5}]},
             "timeout": 0.001
+        },
+        {
+            "name": "Batch (6 tasks for multi-agent)",
+            "payload": {"markers": [{"id": "TEST", "confidence": 0.5}]},
+            "repeat": 6
         }
     ]
 
@@ -67,14 +72,20 @@ async def main() -> None:
         for scenario in test_scenarios:
             if shutdown_event.is_set():
                 break
-            logger.info("Running scenario: %s", scenario["name"])
-            try:
-                timeout = scenario.get("timeout", 30)
-                result = await orchestrator.send_task(scenario["payload"], timeout=timeout)
-                logger.info("Result: Score=%d, Verdict=%s, Reason=%s",
-                            result["risk_score"], result["verdict"], result["reason"])
-            except Exception as e:
-                logger.error("Scenario '%s' failed: %s", scenario["name"], e)
+            repeat = scenario.get("repeat", 1)
+            for i in range(repeat):
+                if shutdown_event.is_set():
+                    break
+                label = f"{scenario['name']}" if repeat == 1 else f"{scenario['name']} #{i+1}"
+                logger.info("Running scenario: %s", label)
+                try:
+                    timeout = scenario.get("timeout", 30)
+                    result = await orchestrator.send_task(scenario["payload"], timeout=timeout)
+                    if repeat == 1:
+                        logger.info("Result: Score=%d, Verdict=%s, Reason=%s",
+                                    result["risk_score"], result["verdict"], result["reason"])
+                except Exception as e:
+                    logger.error("Scenario '%s' failed: %s", label, e)
     finally:
         await orchestrator.disconnect()
 
