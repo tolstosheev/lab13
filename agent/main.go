@@ -28,6 +28,8 @@ type RiskResponse struct {
 	Reason        string `json:"reason"`
 }
 
+var processedTasks int
+
 var weights = map[string]float64{
 	"BLACKLIST_HIT":     80.0,
 	"IMPOSSIBLE_TRAVEL": 50.0,
@@ -77,33 +79,36 @@ func main() {
 	_, err = nc.QueueSubscribe("tasks.risk_assessment", "risk_assessors", func(m *nats.Msg) {
 		var req RiskRequest
 		if err := json.Unmarshal(m.Data, &req); err != nil {
-			log.Printf("Error unmarshaling request: %v", err)
+			log.Printf("ERROR: failed to unmarshal request: %v", err)
 			return
 		}
 
-		log.Printf("Processing risk assessment for transaction: %s", req.TransactionID)
+		log.Printf("INFO: processing risk assessment for transaction: %s", req.TransactionID)
 		res := calculateRisk(req)
 
 		data, err := json.Marshal(res)
 		if err != nil {
-			log.Printf("Error marshaling response: %v", err)
+			log.Printf("ERROR: failed to marshal response: %v", err)
 			return
 		}
 
 		if err := nc.Publish("tasks.completed", data); err != nil {
-			log.Printf("Error publishing result: %v", err)
+			log.Printf("ERROR: failed to publish result: %v", err)
 			return
 		}
-		log.Printf("Risk assessment completed for %s: score %d, verdict %s", res.TransactionID, res.RiskScore, res.Verdict)
+		processedTasks++
+		log.Printf("INFO: risk assessment completed for %s: score %d, verdict %s (processed: %d)", res.TransactionID, res.RiskScore, res.Verdict, processedTasks)
 	})
 
 	if err != nil {
 		log.Fatalf("Subscription error: %v", err)
 	}
 
-	log.Println("Risk Assessor agent is running...")
+	log.Println("INFO: Risk Assessor agent is running...")
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 	<-sigChan
+
+	log.Printf("INFO: Agent shutting down. Total tasks processed: %d", processedTasks)
 }
