@@ -147,3 +147,8 @@
 **Промпт:** "Реализуй AGENT_ID в Go-агенте (префикс в логах), 3 экземпляра агента в docker-compose.yml через YAML anchor, batch-сценарий на 6 задач в main.py с поддержкой repeat."
 
 **Результат:** В `agent/main.go` добавлено чтение `AGENT_ID` из окружения (по умолчанию "agent"), логгеры пишут с префиксом `[agentID]`. В `docker-compose.yml` добавлены `agent-1`, `agent-2`, `agent-3` через YAML anchor `x-agent`. В `orchestrator/main.py` добавлен 6-й сценарий `Batch (6 tasks for multi-agent)` с полем `repeat`, цикл отправки переписан для поддержки повторений. Docker: все 3 агента запущены, задачи распределяются через NATS Queue Group (batch 6 задач разделились 2+2+2 по агентам). 27 pytest + 15 Go-тестов проходят без изменений.
+
+### Промпт 2
+**Промпт:** "Добавь тесты для нескольких агентов: unit-тест с параллельными задачами (asyncio.gather) и e2e Docker-тест с проверкой распределения по 3 агентам."
+
+**Результат:** В `orchestrator/tests/test_orchestrator.py` добавлен `test_concurrent_tasks` — 3 параллельные задачи через `asyncio.gather`, проверка `processed == 3` и пустого registry. Создан `orchestrator/tests/test_multi_agent.py` с e2e Docker-тестом `test_multi_agent_load_balancing` — запуск 3 агентов, отправка 9 задач, проверка логов всех трёх агентов, cleanup через `docker compose down`. Всего 29 pytest + 15 Go-тестов проходят.

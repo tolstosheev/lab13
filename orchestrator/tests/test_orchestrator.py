@@ -265,3 +265,34 @@ async def test_retry_logs_warning_on_each_retry(orchestrator, caplog):
         if rec.levelno == logging.WARNING and "timed out" in rec.message
     )
     assert warning_count == MAX_RETRIES
+
+
+@pytest.mark.asyncio
+async def test_concurrent_tasks(orchestrator):
+    payload = {"markers": [{"id": "CONCURRENT", "confidence": 0.5}]}
+    results_registered = []
+
+    async def resolve_all():
+        for _ in range(200):
+            for task_id, future in list(orchestrator.results.items()):
+                if not future.done():
+                    future.set_result({
+                        "transaction_id": task_id,
+                        "risk_score": 10,
+                        "verdict": "LOW",
+                        "reason": "Concurrent test"
+                    })
+                    results_registered.append(task_id)
+            if len(results_registered) == 3:
+                return
+            await asyncio.sleep(0.01)
+
+    asyncio.create_task(resolve_all())
+
+    tasks = [orchestrator.send_task(payload) for _ in range(3)]
+    results = await asyncio.gather(*tasks)
+
+    assert len(results) == 3
+    assert all(r["risk_score"] == 10 for r in results)
+    assert orchestrator.processed == 3
+    assert len(orchestrator.results) == 0
