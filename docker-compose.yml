@@ -5,3 +5,11 @@ services:
       - "4222:4222"
       - "8222:8222"
     restart: always
+
+  agent:
+    build: ./agent
+    environment:
+      - NATS_URL=nats://nats:4222
+    depends_on:
+      - nats
+    restart: always
