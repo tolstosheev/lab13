@@ -1,8 +1,21 @@
 import asyncio
 import json
 import uuid
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List, TypedDict
 import nats
+
+SUBJECT_RISK_ASSESSMENT = "tasks.risk_assessment"
+SUBJECT_COMPLETED = "tasks.completed"
+
+class RiskRequest(TypedDict):
+    transaction_id: str
+    markers: List[Dict[str, Any]]
+
+class RiskResponse(TypedDict):
+    transaction_id: str
+    risk_score: int
+    verdict: str
+    reason: str
 
 class AgentOrchestrator:
     def __init__(self):
@@ -13,7 +26,7 @@ class AgentOrchestrator:
         self.nc = await nats.connect(url)
 
     async def start_listener(self) -> None:
-        await self.nc.subscribe("tasks.completed", cb=self.on_result)
+        await self.nc.subscribe(SUBJECT_COMPLETED, cb=self.on_result)
 
     async def on_result(self, msg: nats.Msg) -> None:
         try:
@@ -29,23 +42,27 @@ class AgentOrchestrator:
         except (json.JSONDecodeError, UnicodeDecodeError):
             pass
 
-    async def send_task(self, payload: Dict[str, Any], timeout: int = 30) -> Dict[str, Any]:
+    async def send_task(self, payload: Dict[str, Any], timeout: int = 30) -> RiskResponse:
         if not self.nc or not self.nc.is_connected:
             raise ConnectionError("Not connected to NATS server")
 
+        markers = payload.get("markers")
+        if not isinstance(markers, list):
+            raise ValueError("Payload 'markers' must be a list")
+
         task_id = str(uuid.uuid4())
-        task_data = {
+        task_data: RiskRequest = {
             "transaction_id": task_id,
-            "markers": payload.get("markers", [])
+            "markers": markers
         }
         
         future = asyncio.get_running_loop().create_future()
         self.results[task_id] = future
 
         try:
-            await self.nc.publish("tasks.risk_assessment", json.dumps(task_data).encode())
+            await self.nc.publish(SUBJECT_RISK_ASSESSMENT, json.dumps(task_data).encode())
             result = await asyncio.wait_for(future, timeout=timeout)
-            return result
+            return result # type: ignore
         except asyncio.TimeoutError:
             raise TimeoutError(f"Task {task_id} timed out after {timeout} seconds")
         except Exception as e:
