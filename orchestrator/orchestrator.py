@@ -60,15 +60,13 @@ class AgentOrchestrator:
         if not isinstance(markers, list):
             raise ValueError("Payload 'markers' must be a list")
 
-        task_data: RiskRequest = {
-            "transaction_id": str(uuid.uuid4()),
-            "markers": markers
-        }
-
         last_error: Optional[Exception] = None
         for attempt in range(1, MAX_RETRIES + 1):
-            task_id = str(uuid.uuid4())
-            task_data["transaction_id"] = task_id
+            task_data: RiskRequest = {
+                "transaction_id": str(uuid.uuid4()),
+                "markers": markers
+            }
+            task_id = task_data["transaction_id"]
             logger.info("Sending task %s with %d markers (attempt %d/%d)",
                         task_id, len(markers), attempt, MAX_RETRIES)
 
