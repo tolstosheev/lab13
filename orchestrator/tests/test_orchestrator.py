@@ -3,13 +3,12 @@ import logging
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-import pytest_asyncio
 from orchestrator import AgentOrchestrator, SUBJECT_RISK_ASSESSMENT, SUBJECT_COMPLETED, MAX_RETRIES
 from .conftest import resolve_futures
 
 
 @pytest.mark.asyncio
-async def test_connect():
+async def test_connect() -> None:
     with patch("nats.connect", new_callable=AsyncMock) as mock_connect:
         orch = AgentOrchestrator()
         url = "nats://test:4222"
@@ -24,7 +23,7 @@ async def test_connect():
     ([{"id": "HIGH_RISK", "confidence": 1.0}], 80, "MEDIUM"),
 ])
 @pytest.mark.asyncio
-async def test_send_task_success(orchestrator, markers, expected_score, expected_verdict):
+async def test_send_task_success(orchestrator, markers, expected_score, expected_verdict) -> None:
     payload = {"markers": markers}
 
     asyncio.create_task(resolve_futures(
@@ -44,7 +43,7 @@ async def test_send_task_success(orchestrator, markers, expected_score, expected
 
 @pytest.mark.parametrize("timeout_val", [0.01, 0.001])
 @pytest.mark.asyncio
-async def test_send_task_timeout(orchestrator, timeout_val):
+async def test_send_task_timeout(orchestrator, timeout_val) -> None:
     payload = {"markers": []}
     with pytest.raises(TimeoutError):
         await orchestrator.send_task(payload, timeout=timeout_val)
@@ -52,7 +51,7 @@ async def test_send_task_timeout(orchestrator, timeout_val):
 
 
 @pytest.mark.asyncio
-async def test_send_task_not_connected(orchestrator):
+async def test_send_task_not_connected(orchestrator) -> None:
     orchestrator.nc.is_connected = False
     with pytest.raises(ConnectionError):
         await orchestrator.send_task({"markers": []})
@@ -64,7 +63,7 @@ async def test_send_task_not_connected(orchestrator):
     ({}, ValueError),
 ])
 @pytest.mark.asyncio
-async def test_send_task_invalid_payloads(orchestrator, payload, expected_error):
+async def test_send_task_invalid_payloads(orchestrator, payload, expected_error) -> None:
     with pytest.raises(expected_error):
         await orchestrator.send_task(payload)
     assert len(orchestrator.results) == 0
@@ -75,7 +74,7 @@ async def test_send_task_invalid_payloads(orchestrator, payload, expected_error)
     ({"markers": None}, ValueError),
 ])
 @pytest.mark.asyncio
-async def test_send_task_additional_invalid(orchestrator, payload, expected_error):
+async def test_send_task_additional_invalid(orchestrator, payload, expected_error) -> None:
     with pytest.raises(expected_error):
         await orchestrator.send_task(payload)
 
@@ -86,7 +85,7 @@ async def test_send_task_additional_invalid(orchestrator, payload, expected_erro
     (b'{"transaction_id": "t1", "risk_score": 55, "verdict": "MEDIUM", "reason": "Border"}', 55, "MEDIUM"),
 ])
 @pytest.mark.asyncio
-async def test_on_result_valid(orchestrator, payload_bytes, expected_score, expected_verdict):
+async def test_on_result_valid(orchestrator, payload_bytes, expected_score, expected_verdict) -> None:
     task_id = "t1"
     future = asyncio.Future()
     orchestrator.results[task_id] = future
@@ -109,7 +108,7 @@ async def test_on_result_valid(orchestrator, payload_bytes, expected_score, expe
     b'',
 ])
 @pytest.mark.asyncio
-async def test_on_result_malformed(orchestrator, malformed_payload):
+async def test_on_result_malformed(orchestrator, malformed_payload) -> None:
     task_id = "t1"
     future = asyncio.Future()
     orchestrator.results[task_id] = future
@@ -124,7 +123,7 @@ async def test_on_result_malformed(orchestrator, malformed_payload):
 
 
 @pytest.mark.asyncio
-async def test_on_result_already_done(orchestrator):
+async def test_on_result_already_done(orchestrator) -> None:
     task_id = "t1"
     future = asyncio.Future()
     future.set_result("already done")
@@ -141,7 +140,7 @@ async def test_on_result_already_done(orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_on_result_unknown_task(orchestrator):
+async def test_on_result_unknown_task(orchestrator) -> None:
     msg = MagicMock()
     msg.data = b'{"transaction_id": "unknown", "risk_score": 10}'
 
@@ -150,19 +149,19 @@ async def test_on_result_unknown_task(orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_disconnect(orchestrator):
+async def test_disconnect(orchestrator) -> None:
     await orchestrator.disconnect()
     orchestrator.nc.close.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_disconnect_when_not_connected():
+async def test_disconnect_when_not_connected() -> None:
     orch = AgentOrchestrator()
     await orch.disconnect()
 
 
 @pytest.mark.asyncio
-async def test_processed_counter_increments(orchestrator):
+async def test_processed_counter_increments(orchestrator) -> None:
     assert orchestrator.processed == 0
     payload = {"markers": [{"id": "TEST", "confidence": 1.0}]}
 
@@ -175,14 +174,14 @@ async def test_processed_counter_increments(orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_disconnect_with_processed(orchestrator):
+async def test_disconnect_with_processed(orchestrator) -> None:
     orchestrator.processed = 5
     await orchestrator.disconnect()
     orchestrator.nc.close.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_start_listener_subscribes_correctly(orchestrator):
+async def test_start_listener_subscribes_correctly(orchestrator) -> None:
     await orchestrator.start_listener()
     orchestrator.nc.subscribe.assert_called_once()
     args, _ = orchestrator.nc.subscribe.call_args
@@ -190,7 +189,7 @@ async def test_start_listener_subscribes_correctly(orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_connect_logs_url(caplog):
+async def test_connect_logs_url(caplog) -> None:
     caplog.set_level(logging.INFO)
     with patch("nats.connect", new_callable=AsyncMock):
         orch = AgentOrchestrator()
@@ -199,7 +198,7 @@ async def test_connect_logs_url(caplog):
 
 
 @pytest.mark.asyncio
-async def test_send_task_logs(orchestrator, caplog):
+async def test_send_task_logs(orchestrator, caplog) -> None:
     caplog.set_level(logging.INFO)
     payload = {"markers": [{"id": "TEST", "confidence": 1.0}]}
 
@@ -214,7 +213,7 @@ async def test_send_task_logs(orchestrator, caplog):
 
 
 @pytest.mark.asyncio
-async def test_disconnect_logs_processed(orchestrator, caplog):
+async def test_disconnect_logs_processed(orchestrator, caplog) -> None:
     caplog.set_level(logging.INFO)
     orchestrator.processed = 3
     await orchestrator.disconnect()
@@ -222,7 +221,7 @@ async def test_disconnect_logs_processed(orchestrator, caplog):
 
 
 @pytest.mark.asyncio
-async def test_retry_success_on_second_attempt(orchestrator):
+async def test_retry_success_on_second_attempt(orchestrator) -> None:
     payload = {"markers": [{"id": "RETRY", "confidence": 1.0}]}
     call_count = 0
 
@@ -246,7 +245,7 @@ async def test_retry_success_on_second_attempt(orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_retry_exhaustion(orchestrator):
+async def test_retry_exhaustion(orchestrator) -> None:
     payload = {"markers": []}
     with pytest.raises(TimeoutError) as exc_info:
         await orchestrator.send_task(payload, timeout=0.01)
@@ -260,14 +259,14 @@ async def test_retry_exhaustion(orchestrator):
     {},
 ])
 @pytest.mark.asyncio
-async def test_retry_no_retry_on_validation_error(orchestrator, payload):
+async def test_retry_no_retry_on_validation_error(orchestrator, payload) -> None:
     with pytest.raises(ValueError):
         await orchestrator.send_task(payload, timeout=5)
     assert orchestrator.nc.publish.call_count == 0
 
 
 @pytest.mark.asyncio
-async def test_retry_logs_warning_on_each_retry(orchestrator, caplog):
+async def test_retry_logs_warning_on_each_retry(orchestrator, caplog) -> None:
     caplog.set_level(logging.WARNING)
     payload = {"markers": []}
     with pytest.raises(TimeoutError):
@@ -280,7 +279,7 @@ async def test_retry_logs_warning_on_each_retry(orchestrator, caplog):
 
 
 @pytest.mark.asyncio
-async def test_concurrent_tasks(orchestrator):
+async def test_concurrent_tasks(orchestrator) -> None:
     payload = {"markers": [{"id": "CONCURRENT", "confidence": 0.5}]}
 
     asyncio.create_task(resolve_futures(

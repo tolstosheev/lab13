@@ -2,12 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"math"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/nats-io/nats.go"
@@ -30,7 +32,12 @@ type RiskResponse struct {
 	Reason        string `json:"reason"`
 }
 
-var processedTasks int
+var errDecode = errors.New("decode error")
+
+var (
+	processedTasks int
+	mu             sync.Mutex
+)
 
 var weights = map[string]float64{
 	"BLACKLIST_HIT":     80.0,
@@ -66,6 +73,15 @@ func calculateRisk(req RiskRequest) RiskResponse {
 	}
 }
 
+func processMessage(data []byte) ([]byte, error) {
+	var req RiskRequest
+	if err := json.Unmarshal(data, &req); err != nil {
+		return nil, fmt.Errorf("%w: %v", errDecode, err)
+	}
+	res := calculateRisk(req)
+	return json.Marshal(res)
+}
+
 func main() {
 	url := os.Getenv("NATS_URL")
 	if url == "" {
@@ -97,34 +113,32 @@ func main() {
 	}
 	defer nc.Close()
 
-	_, err = nc.QueueSubscribe("tasks.risk_assessment", "risk_assessors", func(m *nats.Msg) {
-		var req RiskRequest
-		if err := json.Unmarshal(m.Data, &req); err != nil {
-			agentLog.Printf("ERROR: failed to unmarshal request: %v", err)
-			return
-		}
-
-		agentLog.Printf("INFO: processing risk assessment for transaction: %s", req.TransactionID)
-		res := calculateRisk(req)
-
-		data, err := json.Marshal(res)
+	sub, err := nc.QueueSubscribe("tasks.risk_assessment", "risk_assessors", func(m *nats.Msg) {
+		resp, err := processMessage(m.Data)
 		if err != nil {
-			agentLog.Printf("ERROR: failed to marshal response: %v", err)
+			if errors.Is(err, errDecode) {
+				agentLog.Printf("DEBUG: failed to decode message: %v", err)
+			} else {
+				agentLog.Printf("ERROR: failed to process message: %v", err)
+			}
 			return
 		}
-
-		if err := nc.Publish("tasks.completed", data); err != nil {
+		if err := nc.Publish("tasks.completed", resp); err != nil {
 			agentLog.Printf("ERROR: failed to publish result: %v", err)
 			return
 		}
+		mu.Lock()
 		processedTasks++
-		agentLog.Printf("INFO: risk assessment completed for %s: score %d, verdict %s (processed: %d)", res.TransactionID, res.RiskScore, res.Verdict, processedTasks)
+		count := processedTasks
+		mu.Unlock()
+		agentLog.Printf("INFO: risk assessment completed (processed: %d)", count)
 	})
 
 	if err != nil {
 		agentLog.Printf("FATAL: Subscription error: %v", err)
 		os.Exit(1)
 	}
+	defer sub.Unsubscribe()
 
 	agentLog.Println("INFO: Risk Assessor agent is running...")
 
@@ -132,5 +146,12 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
 
-	agentLog.Printf("INFO: Agent shutting down. Total tasks processed: %d", processedTasks)
+	mu.Lock()
+	count := processedTasks
+	mu.Unlock()
+	agentLog.Printf("INFO: Agent shutting down. Total tasks processed: %d", count)
+
+	if err := nc.Drain(); err != nil {
+		agentLog.Printf("WARNING: drain error: %v", err)
+	}
 }

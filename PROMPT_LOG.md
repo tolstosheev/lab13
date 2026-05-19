@@ -185,3 +185,19 @@
 - Количество промптов: 3
 - Что пришлось исправлять вручную: удалён мёртвый параметр `client_ip` из `check_rate_limit()` и `fastapi_request` из эндпоинтов; тип `orchestrator` изменён на `Optional[AgentOrchestrator]`; в `/assess/batch` добавлена обработка ValueError → 422 и TimeoutError → 504; удалён неиспользуемый импорт `Union`; добавлен `api/__init__.py` для импорта модуля как пакета; в conftest.py заменён `app.lifespan` на `app.router.lifespan_context` из-за изменения API в Starlette 0.40+; добавлен `Field(ge=0.0, le=1.0)` для валидации confidence; удалён тест CORS (не поддерживается без middleware).
 - Время: ~40 мин.
+
+---
+
+## Задание 9: Тестирование системы
+**Инструмент:** opencode (big-pickle)
+
+### Промпт 1
+**Промпт:** "Разработай комплексное тестовое покрытие для всей системы: Table-Driven тесты Go-агента (calculateRisk с граничными значениями, processMessage, JSON pipeline), pytest-тесты оркестратора (connect, send_task, retry, timeout, validation, on_result, logging, concurrent), e2e multi-agent тесты с проверкой балансировки через Docker, API unit тесты (pytest + AsyncMock) для всех эндпоинтов FastAPI, API e2e тесты против полного стека в Docker. Все тесты должны проходить и локально, и внутри Docker-контейнеров без пропусков."
+
+**Результат:** - **Go agent (21)**: `TestCalculateRisk` — 13 table-driven subtests (границы вердиктов LOW/MEDIUM/HIGH, неизвестные маркеры, zero/negative/overflow confidence, пустой TransactionID); `TestProcessMessage` — 6 subtests (valid c/без маркеров, multiple, invalid JSON, empty input, missing ID); `TestJSONPipeline` — интеграционный тест сериализации.
+
+- **Orchestrator (40)**: 37 unit-тестов — connect, send_task (4 сценария), timeout (2), not_connected, invalid payload (5), on_result (3 valid + 4 malformed + already_done + unknown_task), disconnect (2), processed_counter, logging (4), retry (5), concurrent; 3 multi-agent e2e — load_balancing (3 и 6 задач) с проверкой распределения по логам, no_messages_lost.
+
+- **API (45)**: 39 unit-тестов — health (3), assess (13 параметризованных), async (4), status (5), batch (6), process_background (4), rate_limit (1); 6 e2e-тестов — health, assess_sync, assess_batch, async_flow, validation_error, status_not_found.
+
+Все тесты проходят локально (Windows) и в Docker (Linux). Для Docker: Go-тесты через `golang:1.26-alpine` с монтированием исходников; Python — через `lab13-orchestrator` и `lab13-api` с установкой зависимостей на лету. E2e тесты не пропускаются внутри контейнера — работают против внешнего стека через `docker_stack` фикстуру с условным управлением Docker CLI.

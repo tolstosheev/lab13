@@ -1,7 +1,6 @@
 import asyncio
 from typing import Dict, Any
 
-import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock
 
@@ -9,14 +8,14 @@ from orchestrator import AgentOrchestrator
 
 
 @pytest_asyncio.fixture
-async def orchestrator():
+async def orchestrator() -> AgentOrchestrator:
     orch = AgentOrchestrator()
     orch.nc = AsyncMock()
     orch.nc.is_connected = True
     return orch
 
 
-async def resolve_futures(registry: Dict[str, asyncio.Future], result: Dict[str, Any], count: int = 1):
+async def resolve_futures(registry: Dict[str, asyncio.Future], result: Dict[str, Any], count: int = 1) -> None:
     for _ in range(200):
         for task_id, future in list(registry.items()):
             if not future.done():

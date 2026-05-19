@@ -4,10 +4,19 @@ import os
 import time
 import uuid
 from contextlib import asynccontextmanager
-from typing import Dict, Any, List, Optional
+from typing import AsyncGenerator, Dict, Any, List, Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel, Field
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    handlers=[
+        logging.FileHandler("api.log", mode="w", encoding="utf-8"),
+        logging.StreamHandler()
+    ]
+)
 
 from orchestrator import AgentOrchestrator
 
@@ -16,6 +25,7 @@ logger = logging.getLogger("api")
 NATS_URL = os.getenv("NATS_URL", "nats://localhost:4222")
 RATE_LIMIT = int(os.getenv("RATE_LIMIT", "10"))
 RATE_WINDOW = 60.0
+
 
 class MarkerModel(BaseModel):
     id: str
@@ -77,7 +87,7 @@ def check_rate_limit() -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     global orchestrator
     orchestrator = AgentOrchestrator()
     await orchestrator.connect(NATS_URL)
@@ -92,7 +102,7 @@ app = FastAPI(title="Fraud Detection API", version="0.1.0", lifespan=lifespan)
 
 
 @app.middleware("http")
-async def log_requests(request: Request, call_next):
+async def log_requests(request: Request, call_next) -> Response:
     request_id = str(uuid.uuid4())[:8]
     start = time.time()
     response = await call_next(request)
@@ -102,12 +112,12 @@ async def log_requests(request: Request, call_next):
 
 
 @app.get("/health", response_model=HealthResponse)
-async def health():
+async def health() -> HealthResponse:
     return HealthResponse()
 
 
 @app.post("/assess", response_model=AssessResponse)
-async def assess(request: AssessRequest):
+async def assess(request: AssessRequest) -> AssessResponse:
     check_rate_limit()
     payload = {
         "markers": [m.model_dump() for m in request.markers]
@@ -129,7 +139,7 @@ async def assess(request: AssessRequest):
 
 
 @app.post("/assess/async", response_model=TaskStatus)
-async def assess_async(request: AssessRequest):
+async def assess_async(request: AssessRequest) -> TaskStatus:
     check_rate_limit()
     task_id = str(uuid.uuid4())
     background_tasks[task_id] = {"status": "pending"}
@@ -141,7 +151,7 @@ async def assess_async(request: AssessRequest):
 
 
 @app.get("/status/{task_id}", response_model=TaskStatus)
-async def get_status(task_id: str):
+async def get_status(task_id: str) -> TaskStatus:
     entry = background_tasks.get(task_id)
     if entry is None:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -149,7 +159,7 @@ async def get_status(task_id: str):
 
 
 @app.post("/assess/batch", response_model=BatchResponse)
-async def assess_batch(request: BatchRequest):
+async def assess_batch(request: BatchRequest) -> BatchResponse:
     check_rate_limit()
     results = []
     for i, task in enumerate(request.tasks):

@@ -170,6 +170,86 @@ func TestCalculateRisk(t *testing.T) {
 	}
 }
 
+func TestProcessMessage(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantScore int
+		wantErr   bool
+	}{
+		{
+			name: "valid message with markers",
+			input: `{
+				"transaction_id": "tx-1",
+				"markers": [{"id": "BLACKLIST_HIT", "confidence": 1.0}]
+			}`,
+			wantScore: 80,
+			wantErr:   false,
+		},
+		{
+			name: "valid message without markers",
+			input: `{
+				"transaction_id": "tx-2",
+				"markers": []
+			}`,
+			wantScore: 0,
+			wantErr:   false,
+		},
+		{
+			name: "valid message with multiple markers",
+			input: `{
+				"transaction_id": "tx-3",
+				"markers": [
+					{"id": "BLACKLIST_HIT", "confidence": 1.0},
+					{"id": "VELOCITY_ATTACK", "confidence": 0.5}
+				]
+			}`,
+			wantScore: 95,
+			wantErr:   false,
+		},
+		{
+			name:    "invalid json",
+			input:   `{bad json`,
+			wantErr: true,
+		},
+		{
+			name:    "empty input",
+			input:   ``,
+			wantErr: true,
+		},
+		{
+			name: "missing transaction_id",
+			input: `{
+				"markers": [{"id": "BLACKLIST_HIT", "confidence": 1.0}]
+			}`,
+			wantScore: 80,
+			wantErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := processMessage([]byte(tt.input))
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("processMessage() expected error, got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("processMessage() unexpected error: %v", err)
+			}
+			var res RiskResponse
+			if err := json.Unmarshal(data, &res); err != nil {
+				t.Fatalf("processMessage() output invalid JSON: %v", err)
+			}
+			if res.RiskScore != tt.wantScore {
+				t.Errorf("processMessage() got score = %v, want %v", res.RiskScore, tt.wantScore)
+			}
+		})
+	}
+}
+
 func TestJSONPipeline(t *testing.T) {
 	inputJSON := `{
 		"transaction_id": "test-uuid",

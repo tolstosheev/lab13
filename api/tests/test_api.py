@@ -1,20 +1,22 @@
 import asyncio
+import uuid
+
 import pytest
 
 import api.main
 
 
 class TestHealth:
-    def test_ok(self, client):
+    def test_ok(self, client) -> None:
         resp = client.get("/health")
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
 
-    def test_wrong_method(self, client):
+    def test_wrong_method(self, client) -> None:
         resp = client.post("/health")
         assert resp.status_code == 405
 
-    def test_wrong_path(self, client):
+    def test_wrong_path(self, client) -> None:
         resp = client.get("/healthx")
         assert resp.status_code == 404
 
@@ -54,7 +56,7 @@ class TestAssess:
     def test_success(
         self, client, mock_orch,
         payload, expected_score, expected_verdict, expected_reason,
-    ):
+    ) -> None:
         mock_orch.send_task.return_value = {
             "risk_score": expected_score,
             "verdict": expected_verdict,
@@ -67,7 +69,7 @@ class TestAssess:
         assert data["verdict"] == expected_verdict
         assert data["reason"] == expected_reason
 
-    def test_timeout(self, client, mock_orch):
+    def test_timeout(self, client, mock_orch) -> None:
         mock_orch.send_task.side_effect = asyncio.TimeoutError()
         resp = client.post(
             "/assess",
@@ -76,7 +78,7 @@ class TestAssess:
         assert resp.status_code == 504
         assert "time" in resp.json()["detail"].lower()
 
-    def test_value_error(self, client, mock_orch):
+    def test_value_error(self, client, mock_orch) -> None:
         mock_orch.send_task.side_effect = ValueError("Bad payload")
         resp = client.post(
             "/assess",
@@ -85,7 +87,7 @@ class TestAssess:
         assert resp.status_code == 422
         assert "Bad payload" in resp.json()["detail"]
 
-    def test_internal_error(self, client, mock_orch):
+    def test_internal_error(self, client, mock_orch) -> None:
         mock_orch.send_task.side_effect = Exception("Unexpected")
         resp = client.post(
             "/assess",
@@ -123,17 +125,17 @@ class TestAssess:
     ]
 
     @pytest.mark.parametrize("payload", INVALID_BODIES)
-    def test_invalid_body(self, client, payload):
+    def test_invalid_body(self, client, payload) -> None:
         resp = client.post("/assess", json=payload)
         assert resp.status_code == 422
 
-    def test_wrong_method(self, client):
+    def test_wrong_method(self, client) -> None:
         resp = client.get("/assess")
         assert resp.status_code == 405
 
 
 class TestAssessAsync:
-    def test_creates_task(self, client):
+    def test_creates_task(self, client) -> None:
         resp = client.post(
             "/assess/async",
             json={"markers": [{"id": "T", "confidence": 0.5}]},
@@ -143,11 +145,11 @@ class TestAssessAsync:
         assert data["status"] == "pending"
         assert len(data["task_id"]) > 0
 
-    def test_invalid_body(self, client):
+    def test_invalid_body(self, client) -> None:
         resp = client.post("/assess/async", json={})
         assert resp.status_code == 422
 
-    def test_background_stores_entry(self, client):
+    def test_background_stores_entry(self, client) -> None:
         resp = client.post(
             "/assess/async",
             json={"markers": [{"id": "T", "confidence": 0.5}]},
@@ -155,13 +157,13 @@ class TestAssessAsync:
         task_id = resp.json()["task_id"]
         assert task_id in api.main.background_tasks
 
-    def test_wrong_method(self, client):
+    def test_wrong_method(self, client) -> None:
         resp = client.get("/assess/async")
         assert resp.status_code == 405
 
 
 class TestStatus:
-    def test_completed(self, client):
+    def test_completed(self, client) -> None:
         api.main.background_tasks["t1"] = {
             "status": "completed",
             "result": {
@@ -177,7 +179,7 @@ class TestStatus:
         assert data["result"]["verdict"] == "HIGH"
         assert data["error"] is None
 
-    def test_pending(self, client):
+    def test_pending(self, client) -> None:
         api.main.background_tasks["t2"] = {"status": "pending"}
         resp = client.get("/status/t2")
         assert resp.status_code == 200
@@ -186,7 +188,7 @@ class TestStatus:
         assert data["result"] is None
         assert data["error"] is None
 
-    def test_failed(self, client):
+    def test_failed(self, client) -> None:
         api.main.background_tasks["t3"] = {
             "status": "failed", "error": "Something went wrong",
         }
@@ -196,17 +198,17 @@ class TestStatus:
         assert data["status"] == "failed"
         assert data["error"] == "Something went wrong"
 
-    def test_not_found(self, client):
+    def test_not_found(self, client) -> None:
         resp = client.get("/status/non-existent")
         assert resp.status_code == 404
 
-    def test_wrong_method(self, client):
+    def test_wrong_method(self, client) -> None:
         resp = client.post("/status/t1")
         assert resp.status_code == 405
 
 
 class TestBatch:
-    def test_success(self, client, mock_orch):
+    def test_success(self, client, mock_orch) -> None:
         mock_orch.send_task.return_value = {
             "risk_score": 50, "verdict": "MEDIUM", "reason": "OK",
         }
@@ -223,36 +225,89 @@ class TestBatch:
             assert r["risk_score"] == 50
             assert r["verdict"] == "MEDIUM"
 
-    def test_empty_tasks(self, client):
+    def test_empty_tasks(self, client) -> None:
         resp = client.post("/assess/batch", json={"tasks": []})
         assert resp.status_code == 200
         assert resp.json()["results"] == []
 
-    def test_timeout(self, client, mock_orch):
+    def test_timeout(self, client, mock_orch) -> None:
         mock_orch.send_task.side_effect = asyncio.TimeoutError()
         resp = client.post("/assess/batch", json={
             "tasks": [{"markers": [{"id": "A", "confidence": 0.5}]}],
         })
         assert resp.status_code == 504
 
-    def test_value_error(self, client, mock_orch):
+    def test_value_error(self, client, mock_orch) -> None:
         mock_orch.send_task.side_effect = ValueError("Invalid marker")
         resp = client.post("/assess/batch", json={
             "tasks": [{"markers": [{"id": "A", "confidence": 0.5}]}],
         })
         assert resp.status_code == 422
 
-    def test_invalid_body(self, client):
+    def test_invalid_body(self, client) -> None:
         resp = client.post("/assess/batch", json={})
         assert resp.status_code == 422
 
-    def test_wrong_method(self, client):
+    def test_wrong_method(self, client) -> None:
         resp = client.get("/assess/batch")
         assert resp.status_code == 405
 
 
+class TestProcessBackground:
+    @staticmethod
+    async def run(mock_orch, side_effect=None) -> str:
+        api.main.orchestrator = mock_orch
+        task_id = str(uuid.uuid4())
+        api.main.background_tasks[task_id] = {"status": "pending"}
+        payload = {"markers": [{"id": "TEST", "confidence": 0.5}]}
+        if side_effect is not None:
+            mock_orch.send_task.side_effect = side_effect
+        else:
+            mock_orch.send_task.return_value = {
+                "risk_score": 50, "verdict": "MEDIUM", "reason": "Score 50",
+            }
+        await api.main.process_background(task_id, payload)
+        return task_id
+
+    @pytest.mark.asyncio
+    async def test_completed(self, mock_orch) -> None:
+        task_id = await self.run(mock_orch)
+        entry = api.main.background_tasks[task_id]
+        assert entry["status"] == "completed"
+        assert entry["result"]["risk_score"] == 50
+        assert entry["result"]["verdict"] == "MEDIUM"
+
+    @pytest.mark.asyncio
+    async def test_timeout(self, mock_orch) -> None:
+        task_id = await self.run(mock_orch, side_effect=asyncio.TimeoutError())
+        entry = api.main.background_tasks[task_id]
+        assert entry["status"] == "failed"
+        assert "timed out" in entry["error"]
+
+    @pytest.mark.asyncio
+    async def test_exception(self, mock_orch) -> None:
+        task_id = await self.run(mock_orch, side_effect=ValueError("bad data"))
+        entry = api.main.background_tasks[task_id]
+        assert entry["status"] == "failed"
+        assert "bad data" in entry["error"]
+
+    @pytest.mark.asyncio
+    async def test_pending_overwritten(self, mock_orch) -> None:
+        api.main.orchestrator = mock_orch
+        task_id = str(uuid.uuid4())
+        api.main.background_tasks[task_id] = {"status": "pending"}
+        payload = {"markers": [{"id": "TEST", "confidence": 0.5}]}
+        mock_orch.send_task.return_value = {
+            "risk_score": 80, "verdict": "HIGH", "reason": "Critical",
+        }
+        await api.main.process_background(task_id, payload)
+        entry = api.main.background_tasks[task_id]
+        assert entry["status"] == "completed"
+        assert entry["result"]["risk_score"] == 80
+
+
 class TestRateLimit:
-    def test_exceeded(self, client):
+    def test_exceeded(self, client) -> None:
         for _ in range(10):
             resp = client.post(
                 "/assess",

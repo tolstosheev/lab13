@@ -6,6 +6,15 @@ from typing import cast, Dict, Optional, Any, List, TypedDict
 import nats
 from nats.aio.msg import Msg
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    handlers=[
+        logging.FileHandler("orchestrator.log", mode="w", encoding="utf-8"),
+        logging.StreamHandler()
+    ]
+)
+
 logger = logging.getLogger(__name__)
 
 SUBJECT_RISK_ASSESSMENT = "tasks.risk_assessment"
@@ -23,7 +32,7 @@ class RiskResponse(TypedDict):
     reason: str
 
 class AgentOrchestrator:
-    def __init__(self):
+    def __init__(self) -> None:
         self.nc: Optional[nats.NATS] = None
         self.results: Dict[str, asyncio.Future] = {}
         self.processed: int = 0

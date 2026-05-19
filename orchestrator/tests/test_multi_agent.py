@@ -20,7 +20,7 @@ def run_docker_compose(args: list[str]) -> subprocess.CompletedProcess:
 
 
 @pytest.fixture(scope="module")
-def docker_stack():
+def docker_stack() -> None:
     if docker_available:
         run_docker_compose(["up", "-d", "nats", "agent-1", "agent-2", "agent-3"])
         import time
@@ -31,7 +31,7 @@ def docker_stack():
 
 
 @pytest.fixture(scope="module")
-def event_loop():
+def event_loop() -> None:
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
@@ -43,7 +43,7 @@ class TestMultiAgent:
 
     @pytest.mark.parametrize("task_count", [3, 6])
     @pytest.mark.asyncio
-    async def test_load_balancing(self, task_count):
+    async def test_load_balancing(self, task_count) -> None:
         from orchestrator import AgentOrchestrator
         orch = AgentOrchestrator()
         await orch.connect(NATS_URL)
@@ -62,7 +62,7 @@ class TestMultiAgent:
             logs = run_docker_compose(["logs", "agent-1", "agent-2", "agent-3"])
             for line in logs.stdout.splitlines():
                 for aid in ("agent-1", "agent-2", "agent-3"):
-                    if f"[{aid}]" in line and "processing risk assessment" in line:
+                    if f"[{aid}]" in line and "risk assessment completed" in line:
                         agents_seen.add(aid)
 
         if docker_available:
@@ -72,7 +72,7 @@ class TestMultiAgent:
                 assert len(agents_seen) > 0
 
     @pytest.mark.asyncio
-    async def test_no_messages_lost(self):
+    async def test_no_messages_lost(self) -> None:
         from orchestrator import AgentOrchestrator
         orch = AgentOrchestrator()
         await orch.connect(NATS_URL)

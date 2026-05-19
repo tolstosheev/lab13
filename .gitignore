@@ -15,3 +15,5 @@ coverage/
 *.db-shm
 .env
 AGENTS.md
+logs/
+*.log

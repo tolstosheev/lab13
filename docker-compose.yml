@@ -19,18 +19,24 @@ services:
     environment:
       NATS_URL: nats://nats:4222
       AGENT_ID: agent-1
+    volumes:
+      - ./logs/agent-1.log:/app/agent.log
 
   agent-2:
     <<: *agent-base
     environment:
       NATS_URL: nats://nats:4222
       AGENT_ID: agent-2
+    volumes:
+      - ./logs/agent-2.log:/app/agent.log
 
   agent-3:
     <<: *agent-base
     environment:
       NATS_URL: nats://nats:4222
       AGENT_ID: agent-3
+    volumes:
+      - ./logs/agent-3.log:/app/agent.log
 
   orchestrator:
     build: ./orchestrator
@@ -51,3 +57,5 @@ services:
     depends_on:
       - nats
     restart: "no"
+    volumes:
+      - ./logs/api.log:/app/api.log

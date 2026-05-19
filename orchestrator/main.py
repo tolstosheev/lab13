@@ -16,21 +16,12 @@ def handle_signal() -> None:
 
 
 async def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-        handlers=[
-            logging.FileHandler("orchestrator.log", mode="w", encoding="utf-8"),
-            logging.StreamHandler()
-        ]
-    )
-
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
             loop.add_signal_handler(sig, handle_signal)
         except NotImplementedError:
-            pass
+            logger.warning("Signal handlers not supported on this platform")
 
     orchestrator = AgentOrchestrator()
     await orchestrator.connect(NATS_URL)
