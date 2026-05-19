@@ -3,10 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/nats-io/nats.go"
 )
@@ -70,45 +72,58 @@ func main() {
 		url = nats.DefaultURL
 	}
 
+	var agentLog *log.Logger
+	logFile, err := os.OpenFile("agent.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		agentLog = log.New(os.Stdout, "", log.LstdFlags)
+		agentLog.Printf("WARNING: failed to open log file, stdout only: %v", err)
+	} else {
+		multiWriter := io.MultiWriter(os.Stdout, logFile)
+		agentLog = log.New(multiWriter, "", log.LstdFlags)
+		defer logFile.Close()
+	}
+
 	nc, err := nats.Connect(url)
 	if err != nil {
-		log.Fatalf("NATS connection error: %v", err)
+		agentLog.Printf("FATAL: NATS connection error: %v", err)
+		os.Exit(1)
 	}
 	defer nc.Close()
 
 	_, err = nc.QueueSubscribe("tasks.risk_assessment", "risk_assessors", func(m *nats.Msg) {
 		var req RiskRequest
 		if err := json.Unmarshal(m.Data, &req); err != nil {
-			log.Printf("ERROR: failed to unmarshal request: %v", err)
+			agentLog.Printf("ERROR: failed to unmarshal request: %v", err)
 			return
 		}
 
-		log.Printf("INFO: processing risk assessment for transaction: %s", req.TransactionID)
+		agentLog.Printf("INFO: processing risk assessment for transaction: %s", req.TransactionID)
 		res := calculateRisk(req)
 
 		data, err := json.Marshal(res)
 		if err != nil {
-			log.Printf("ERROR: failed to marshal response: %v", err)
+			agentLog.Printf("ERROR: failed to marshal response: %v", err)
 			return
 		}
 
 		if err := nc.Publish("tasks.completed", data); err != nil {
-			log.Printf("ERROR: failed to publish result: %v", err)
+			agentLog.Printf("ERROR: failed to publish result: %v", err)
 			return
 		}
 		processedTasks++
-		log.Printf("INFO: risk assessment completed for %s: score %d, verdict %s (processed: %d)", res.TransactionID, res.RiskScore, res.Verdict, processedTasks)
+		agentLog.Printf("INFO: risk assessment completed for %s: score %d, verdict %s (processed: %d)", res.TransactionID, res.RiskScore, res.Verdict, processedTasks)
 	})
 
 	if err != nil {
-		log.Fatalf("Subscription error: %v", err)
+		agentLog.Printf("FATAL: Subscription error: %v", err)
+		os.Exit(1)
 	}
 
-	log.Println("INFO: Risk Assessor agent is running...")
+	agentLog.Println("INFO: Risk Assessor agent is running...")
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
 
-	log.Printf("INFO: Agent shutting down. Total tasks processed: %d", processedTasks)
+	agentLog.Printf("INFO: Agent shutting down. Total tasks processed: %d", processedTasks)
 }

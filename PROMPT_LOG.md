@@ -102,3 +102,8 @@
 **Промпт:** "Добавь в Python-оркестратор структурированное логирование с уровнями INFO/ERROR, счётчик обработанных задач и запись в файл + консоль."
 
 **Результат:** В `orchestrator/orchestrator.py` добавлен module-level логгер, счетчик `self.processed`, логи уровня INFO/ERROR во всех методах. В `orchestrator/main.py` настроен `logging.basicConfig` с `FileHandler` (режим `w`) и `StreamHandler`. 15 pytest-тестов проходят.
+
+### Промпт 3
+**Промпт:** "Добавь логирование в файл для Go-агента, настрой оркестратор для работы в Docker, обеспечь обработку сигналов и корректное логирование."
+
+**Результат:** В `agent/main.go` добавлен `io.MultiWriter(os.Stdout, logFile)` — лог дублируется в консоль и `agent.log`. Создан `orchestrator/Dockerfile` на базе `python:3.13-slim`, зафиксированы версии зависимостей (`nats-py==2.14.0`, `pytest==8.4.2`, `pytest-asyncio==1.3.0`). В `docker-compose.yml` добавлен сервис `orchestrator` с `NATS_URL=nats://nats:4222`. В `orchestrator/main.py` добавлено чтение `NATS_URL` из окружения, обработка `SIGINT`/`SIGTERM` через `add_signal_handler` с graceful disconnect. В `agent/main.go` добавлен `syscall.SIGTERM` в `signal.Notify`. Созданы `.dockerignore` для обоих сервисов. Docker-образы собираются и работают корректно.

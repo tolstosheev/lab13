@@ -1,9 +1,19 @@
 import asyncio
 import logging
+import os
+import signal
 
 from orchestrator import AgentOrchestrator
 
+NATS_URL = os.getenv("NATS_URL", "nats://localhost:4222")
 logger = logging.getLogger("main")
+shutdown_event = asyncio.Event()
+
+
+def handle_signal() -> None:
+    logger.info("Shutdown signal received, finishing...")
+    shutdown_event.set()
+
 
 async def main() -> None:
     logging.basicConfig(
@@ -15,8 +25,15 @@ async def main() -> None:
         ]
     )
 
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, handle_signal)
+        except NotImplementedError:
+            pass
+
     orchestrator = AgentOrchestrator()
-    await orchestrator.connect()
+    await orchestrator.connect(NATS_URL)
     await orchestrator.start_listener()
 
     test_scenarios = [
@@ -41,16 +58,19 @@ async def main() -> None:
         }
     ]
 
-    for scenario in test_scenarios:
-        logger.info("Running scenario: %s", scenario["name"])
-        try:
-            result = await orchestrator.send_task(scenario["payload"])
-            logger.info("Result: Score=%d, Verdict=%s, Reason=%s",
-                        result["risk_score"], result["verdict"], result["reason"])
-        except Exception as e:
-            logger.error("Scenario '%s' failed: %s", scenario["name"], e)
-
-    await orchestrator.disconnect()
+    try:
+        for scenario in test_scenarios:
+            if shutdown_event.is_set():
+                break
+            logger.info("Running scenario: %s", scenario["name"])
+            try:
+                result = await orchestrator.send_task(scenario["payload"])
+                logger.info("Result: Score=%d, Verdict=%s, Reason=%s",
+                            result["risk_score"], result["verdict"], result["reason"])
+            except Exception as e:
+                logger.error("Scenario '%s' failed: %s", scenario["name"], e)
+    finally:
+        await orchestrator.disconnect()
 
 if __name__ == "__main__":
     asyncio.run(main())
