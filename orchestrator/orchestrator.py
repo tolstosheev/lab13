@@ -1,8 +1,9 @@
 import asyncio
 import json
 import uuid
-from typing import Dict, Optional, Any, List, TypedDict, cast
+from typing import cast, Dict, Optional, Any, List, TypedDict
 import nats
+from nats.aio.msg import Msg
 
 SUBJECT_RISK_ASSESSMENT = "tasks.risk_assessment"
 SUBJECT_COMPLETED = "tasks.completed"
@@ -28,7 +29,7 @@ class AgentOrchestrator:
     async def start_listener(self) -> None:
         await self.nc.subscribe(SUBJECT_COMPLETED, cb=self.on_result)
 
-    async def on_result(self, msg: Any) -> None:
+    async def on_result(self, msg: Msg) -> None:
         try:
             data = json.loads(msg.data.decode())
             if not isinstance(data, dict):
