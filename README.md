@@ -75,7 +75,7 @@ graph TB
     subgraph "Оркестратор — AgentOrchestrator"
         Orch[AgentOrchestrator]
         Retry[Retry-логика<br/>MAX_RETRIES=3]
-        Registry[Task Registry<br/>Dict[str, asyncio.Future]]
+        Registry["Task Registry<br/>Dict[str, asyncio.Future]"]
         Val[Валидация<br/>markers must be list]
     end
 
